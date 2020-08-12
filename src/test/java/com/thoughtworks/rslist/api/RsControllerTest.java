@@ -1,9 +1,13 @@
 package com.thoughtworks.rslist.api;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.thoughtworks.rslist.domain.Trade;
 import com.thoughtworks.rslist.dto.RsEventDto;
+import com.thoughtworks.rslist.dto.TradeDto;
 import com.thoughtworks.rslist.dto.UserDto;
 import com.thoughtworks.rslist.dto.VoteDto;
 import com.thoughtworks.rslist.repository.RsEventRepository;
+import com.thoughtworks.rslist.repository.TradeRepository;
 import com.thoughtworks.rslist.repository.UserRepository;
 import com.thoughtworks.rslist.repository.VoteRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +39,8 @@ class RsControllerTest {
   @Autowired UserRepository userRepository;
   @Autowired RsEventRepository rsEventRepository;
   @Autowired VoteRepository voteRepository;
+  @Autowired TradeRepository tradeRepository;
+  @Autowired ObjectMapper objectMapper;
   private UserDto userDto;
 
   @BeforeEach
@@ -42,6 +48,7 @@ class RsControllerTest {
     voteRepository.deleteAll();
     rsEventRepository.deleteAll();
     userRepository.deleteAll();
+    tradeRepository.deleteAll();
     userDto =
         UserDto.builder()
             .voteNum(10)
@@ -184,5 +191,55 @@ class RsControllerTest {
     List<VoteDto> voteDtos =  voteRepository.findAll();
     assertEquals(voteDtos.size(), 1);
     assertEquals(voteDtos.get(0).getNum(), 1);
+  }
+
+  @Test
+  public void shouldBuySuccess() throws Exception {
+    UserDto save = userRepository.save(userDto);
+    RsEventDto rsEventDto =
+            RsEventDto.builder().keyword("无分类").eventName("第一条事件").user(save).build();
+    rsEventDto = rsEventRepository.save(rsEventDto);
+
+    Trade trade = Trade.builder().rank(1).amount(10).build();
+    String jsonString = objectMapper.writeValueAsString(trade);
+
+    mockMvc.perform(post("/rs/buy/{id}", rsEventDto.getId()).content(jsonString).contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk());
+
+    RsEventDto newRsEvent = rsEventRepository.findById(rsEventDto.getId()).get();
+    assertEquals(newRsEvent.getRank(), 1);
+    List<TradeDto> tradeDtoList = tradeRepository.findAll();
+    assertEquals(tradeDtoList.size(), 1);
+    assertEquals(tradeDtoList.get(0).getAmount(), 10);
+    assertEquals(tradeDtoList.get(0).getRank(), 1);
+  }
+  @Test
+  public void shouldThrowExceptionWhenRsEventNotExists() throws Exception {
+    UserDto save = userRepository.save(userDto);
+    RsEventDto rsEventDto =
+            RsEventDto.builder().keyword("无分类").eventName("第一条事件").user(save).build();
+    rsEventDto = rsEventRepository.save(rsEventDto);
+
+    Trade trade = Trade.builder().rank(1).amount(10).build();
+    String jsonString = objectMapper.writeValueAsString(trade);
+
+    mockMvc.perform(post("/rs/buy/{id}", rsEventDto.getId() + 1).content(jsonString).contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error", is("rsEvent not exists")));
+  }
+  @Test
+  public void shouldThrowExceptionWhenAmountLessThanMinimum() throws Exception {
+    UserDto save = userRepository.save(userDto);
+    RsEventDto rsEventDto =
+            RsEventDto.builder().keyword("无分类").eventName("第一条事件").user(save).build();
+    rsEventDto = rsEventRepository.save(rsEventDto);
+    TradeDto tradeDto = TradeDto.builder().amount(10).rank(1).build();
+    tradeRepository.save(tradeDto);
+
+    Trade trade = Trade.builder().rank(1).amount(5).build();
+    String jsonString = objectMapper.writeValueAsString(trade);
+    mockMvc.perform(post("/rs/buy/{id}", rsEventDto.getId()).content(jsonString).contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error", is("amount is less than minimum amount")));
   }
 }
