@@ -116,8 +116,10 @@ class RsServiceTest {
                     .voteNum(2)
                     .user(userDto)
                     .build();
+
+    TradeDto tradeDto = TradeDto.builder().rank(1).amount(1).rsEventDto(rsEventDto).build();
     when(rsEventRepository.findById(anyInt())).thenReturn(Optional.of(rsEventDto));
-    when(tradeRepository.findMaxAmountByRank(anyInt())).thenReturn(0);
+    when(tradeRepository.findByRank(anyInt())).thenReturn(Optional.of(tradeDto));
     // when
     rsService.buy(trade, 1);
     // then
@@ -157,8 +159,9 @@ class RsServiceTest {
                     .voteNum(2)
                     .user(userDto)
                     .build();
+    TradeDto tradeDto = TradeDto.builder().rank(1).amount(100).rsEventDto(rsEventDto).build();
     when(rsEventRepository.findById(anyInt())).thenReturn(Optional.of(rsEventDto));
-    when(tradeRepository.findMaxAmountByRank(anyInt())).thenReturn(100);
+    when(tradeRepository.findByRank(anyInt())).thenReturn(Optional.of(tradeDto));
     // when&then
     assertThrows(
             RuntimeException.class,

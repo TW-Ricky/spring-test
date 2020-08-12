@@ -233,7 +233,7 @@ class RsControllerTest {
     RsEventDto rsEventDto =
             RsEventDto.builder().keyword("无分类").eventName("第一条事件").user(save).build();
     rsEventDto = rsEventRepository.save(rsEventDto);
-    TradeDto tradeDto = TradeDto.builder().amount(10).rank(1).build();
+    TradeDto tradeDto = TradeDto.builder().amount(10).rank(1).rsEventDto(rsEventDto).build();
     tradeRepository.save(tradeDto);
 
     Trade trade = Trade.builder().rank(1).amount(5).build();
@@ -241,5 +241,26 @@ class RsControllerTest {
     mockMvc.perform(post("/rs/buy/{id}", rsEventDto.getId()).content(jsonString).contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.error", is("amount is less than minimum amount")));
+  }
+
+  @Test
+  public void shouldDeleteOldRsEventWhenNewTradeAdded() throws Exception {
+    UserDto save = userRepository.save(userDto);
+    RsEventDto firstRsEventDto = RsEventDto.builder().keyword("无分类").eventName("第一条事件").user(save).build();
+    RsEventDto secondRsEventDto = RsEventDto.builder().keyword("无分类").eventName("第二条事件").user(save).build();
+    firstRsEventDto = rsEventRepository.save(firstRsEventDto);
+    secondRsEventDto = rsEventRepository.save(secondRsEventDto);
+    TradeDto tradeDto = TradeDto.builder().amount(5).rank(1).rsEventDto(firstRsEventDto).build();
+    tradeRepository.save(tradeDto);
+    Trade trade = Trade.builder().rank(1).amount(10).build();
+    String jsonString = objectMapper.writeValueAsString(trade);
+
+    mockMvc.perform(post("/rs/buy/{id}", secondRsEventDto.getId()).content(jsonString).contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk());
+
+    List<RsEventDto> rsEventDtoList = rsEventRepository.findAll();
+    assertEquals(rsEventDtoList.size(), 1);
+    assertEquals(rsEventDtoList.get(0).getRank(), 1);
+    assertEquals(rsEventDtoList.get(0).getEventName(), secondRsEventDto.getEventName());
   }
 }

@@ -60,12 +60,16 @@ public class RsService {
       throw new RsEventNotExistsException("rsEvent not exists");
     }
 
-    Integer maxAmount = tradeRepository.findMaxAmountByRank(trade.getRank());
-    if (maxAmount == null) {
-      maxAmount = Integer.valueOf(0);
-    }
-    if (trade.getAmount() <= maxAmount) {
-      throw new AmountLessThanMinimumAmount("amount is less than minimum amount");
+    Optional<TradeDto> tradeDtoOptional = tradeRepository.findByRank(trade.getRank());
+
+    if (tradeDtoOptional.isPresent()) {
+      if (trade.getAmount() <= tradeDtoOptional.get().getAmount()) {
+        throw new AmountLessThanMinimumAmount("amount is less than minimum amount");
+      }
+      if (tradeDtoOptional.get().getRsEventDto().getId() != id) {
+        tradeRepository.delete(tradeDtoOptional.get());
+        rsEventRepository.delete(tradeDtoOptional.get().getRsEventDto());
+      }
     }
     TradeDto tradeDto = TradeDto.builder()
             .amount(trade.getAmount())

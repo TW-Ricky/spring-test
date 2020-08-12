@@ -15,10 +15,12 @@ import javax.persistence.*;
 @AllArgsConstructor
 public class TradeDto {
     @Id
-    @GeneratedValue
-    private int id;
+    private Integer rank;
 
     private Integer amount;
-    private Integer rank;
+
+    @OneToOne
+    @JoinColumn(name = "rsEventId")
+    private RsEventDto rsEventDto;
 
 }
